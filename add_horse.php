@@ -50,7 +50,7 @@ if (isset($_POST['add_horse'])) {
     if (empty($errors)) {
         $insert_query = "INSERT INTO horses (user_id, name, breed, category_id, age, gender, color, height, price, location, description, training_level, disciplines, health_status, vaccinations_current, registration_papers) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $insert_stmt = $conn->prepare($insert_query);
-        $insert_stmt->bind_param("isssissdsssssii", $user['id'], $name, $breed, $category_id, $age, $gender, $color, $height, $price, $location, $description, $training_level, $disciplines, $health_status, $vaccinations_current, $registration_papers);
+        $insert_stmt->bind_param("issiissddsssssii", $user['id'], $name, $breed, $category_id, $age, $gender, $color, $height, $price, $location, $description, $training_level, $disciplines, $health_status, $vaccinations_current, $registration_papers);
         
         if ($insert_stmt->execute()) {
             $horse_id = $conn->insert_id;
