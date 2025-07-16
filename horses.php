@@ -1,6 +1,6 @@
 <?php
-include('includes/db.php');
 session_start();
+include('includes/db.php');
 
 // Get filter parameters
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -17,7 +17,6 @@ $offset = ($page - 1) * $limit;
 // Build the WHERE clause
 $where_conditions = ["status = 'available'"];
 $params = [];
-$types = "";
 
 if (!empty($search)) {
     $where_conditions[] = "(h.name LIKE ? OR h.breed LIKE ? OR h.description LIKE ?)";
@@ -25,77 +24,126 @@ if (!empty($search)) {
     $params[] = $search_param;
     $params[] = $search_param;
     $params[] = $search_param;
-    $types .= "sss";
 }
 
 if (!empty($category)) {
     $where_conditions[] = "h.category_id = ?";
-    $params[] = $category;
-    $types .= "i";
+    $params[] = (int)$category;
 }
 
 if (!empty($min_price)) {
     $where_conditions[] = "h.price >= ?";
-    $params[] = $min_price;
-    $types .= "d";
+    $params[] = (float)$min_price;
 }
 
 if (!empty($max_price)) {
     $where_conditions[] = "h.price <= ?";
-    $params[] = $max_price;
-    $types .= "d";
+    $params[] = (float)$max_price;
 }
 
 if (!empty($gender)) {
     $where_conditions[] = "h.gender = ?";
     $params[] = $gender;
-    $types .= "s";
 }
 
 if (!empty($training_level)) {
     $where_conditions[] = "h.training_level = ?";
     $params[] = $training_level;
-    $types .= "s";
 }
 
 if (!empty($location)) {
     $where_conditions[] = "h.location LIKE ?";
     $params[] = "%$location%";
-    $types .= "s";
 }
 
-$where_clause = implode(" AND ", $where_conditions);
+$where_clause = implode(' AND ', $where_conditions);
 
-// Get total count for pagination
-$count_query = "SELECT COUNT(*) as total FROM horses h LEFT JOIN categories c ON h.category_id = c.id WHERE $where_clause";
-$count_stmt = $conn->prepare($count_query);
-if (!empty($params)) {
-    $count_stmt->bind_param($types, ...$params);
+// Count total horses for pagination
+$count_sql = "SELECT COUNT(*) as total FROM horses h WHERE $where_clause";
+if ($conn && !isDemoMode()) {
+    $count_stmt = $conn->prepare($count_sql);
+    if (!empty($params)) {
+        $count_stmt->execute($params);
+    } else {
+        $count_stmt->execute();
+    }
+    $total_horses = $count_stmt->fetch()['total'];
+} else {
+    $total_horses = 5; // Demo mode
 }
-$count_stmt->execute();
-$total_horses = $count_stmt->get_result()->fetch_assoc()['total'];
+
 $total_pages = ceil($total_horses / $limit);
 
 // Get horses with pagination
-$query = "SELECT h.*, c.name as category_name, u.name as seller_name, u.location as seller_location,
-          (SELECT image_path FROM horse_images WHERE horse_id = h.id AND is_primary = 1 LIMIT 1) as primary_image
-          FROM horses h 
-          LEFT JOIN categories c ON h.category_id = c.id 
-          LEFT JOIN users u ON h.user_id = u.id 
-          WHERE $where_clause 
-          ORDER BY h.featured DESC, h.created_at DESC 
-          LIMIT ? OFFSET ?";
+$sql = "SELECT h.*, c.name as category_name, u.name as seller_name, u.location as seller_location 
+        FROM horses h 
+        LEFT JOIN categories c ON h.category_id = c.id 
+        LEFT JOIN users u ON h.user_id = u.id 
+        WHERE $where_clause 
+        ORDER BY h.featured DESC, h.created_at DESC 
+        LIMIT ? OFFSET ?";
 
-$stmt = $conn->prepare($query);
-$params[] = $limit;
-$params[] = $offset;
-$types .= "ii";
-$stmt->bind_param($types, ...$params);
-$stmt->execute();
-$horses = $stmt->get_result();
+$horses = [];
+if ($conn && !isDemoMode()) {
+    $all_params = array_merge($params, [$limit, $offset]);
+    $stmt = $conn->prepare($sql);
+    $stmt->execute($all_params);
+    $horses = $stmt->fetchAll();
+} else {
+    // Demo mode data
+    $horses = [
+        [
+            'id' => 1,
+            'name' => 'Thunder',
+            'breed' => 'Thoroughbred',
+            'age' => 5,
+            'gender' => 'male',
+            'color' => 'Bay',
+            'height' => 16.2,
+            'price' => 25000.00,
+            'location' => 'Kentucky, USA',
+            'description' => 'Beautiful thoroughbred stallion with excellent racing bloodlines.',
+            'category_name' => 'Thoroughbred',
+            'seller_name' => 'John Smith',
+            'seller_location' => 'Kentucky, USA',
+            'featured' => 1
+        ],
+        [
+            'id' => 2,
+            'name' => 'Midnight Star',
+            'breed' => 'Arabian',
+            'age' => 8,
+            'gender' => 'female',
+            'color' => 'Black',
+            'height' => 15.1,
+            'price' => 18000.00,
+            'location' => 'Kentucky, USA',
+            'description' => 'Stunning black Arabian mare with incredible endurance.',
+            'category_name' => 'Arabian',
+            'seller_name' => 'John Smith',
+            'seller_location' => 'Kentucky, USA',
+            'featured' => 0
+        ]
+    ];
+}
 
 // Get categories for filter dropdown
-$categories_result = $conn->query("SELECT * FROM categories ORDER BY name");
+$categories = [];
+if ($conn && !isDemoMode()) {
+    $cat_stmt = $conn->prepare("SELECT * FROM categories ORDER BY name");
+    $cat_stmt->execute();
+    $categories = $cat_stmt->fetchAll();
+} else {
+    // Demo categories
+    $categories = [
+        ['id' => 1, 'name' => 'Sport Horse'],
+        ['id' => 2, 'name' => 'Draft Horse'],
+        ['id' => 3, 'name' => 'Pony'],
+        ['id' => 4, 'name' => 'Arabian'],
+        ['id' => 5, 'name' => 'Quarter Horse'],
+        ['id' => 6, 'name' => 'Thoroughbred']
+    ];
+}
 ?>
 
 <!DOCTYPE html>
@@ -127,12 +175,12 @@ $categories_result = $conn->query("SELECT * FROM categories ORDER BY name");
                 <div class="filters-row">
                     <select name="category">
                         <option value="">All Breeds</option>
-                        <?php while ($cat = $categories_result->fetch_assoc()): ?>
+                        <?php foreach ($categories as $cat): ?>
                             <option value="<?php echo $cat['id']; ?>" 
                                     <?php echo $category == $cat['id'] ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($cat['name']); ?>
                             </option>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </select>
                     
                     <select name="gender">
@@ -177,9 +225,9 @@ $categories_result = $conn->query("SELECT * FROM categories ORDER BY name");
                 <?php endif; ?>
             </div>
 
-            <?php if ($horses->num_rows > 0): ?>
+            <?php if (!empty($horses)): ?>
                 <div class="horses-grid">
-                    <?php while ($horse = $horses->fetch_assoc()): ?>
+                    <?php foreach ($horses as $horse): ?>
                         <div class="horse-card">
                             <div class="horse-image">
                                 <?php if ($horse['primary_image']): ?>
@@ -211,7 +259,7 @@ $categories_result = $conn->query("SELECT * FROM categories ORDER BY name");
                                 </div>
                             </div>
                         </div>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </div>
 
                 <!-- Pagination -->
