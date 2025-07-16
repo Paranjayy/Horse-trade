@@ -1,7 +1,7 @@
 <?php
 // Demo Mode Configuration
 // Set this to true to run without database (for Vercel demo)
-define('DEMO_MODE', true);
+define('DEMO_MODE', false);
 
 // Mock data for demo mode
 function getDemoHorses() {

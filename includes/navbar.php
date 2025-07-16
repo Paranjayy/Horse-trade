@@ -6,7 +6,7 @@ session_start();
         <a href="index.php" class="logo">🐎 HorseTrader</a>
         <div class="nav-links">
             <a href="index.php">Home</a>
-            <a href="horses-demo.php">Browse Horses</a>
+            <a href="horses.php">Browse Horses</a>
             <?php if (isset($_SESSION['email'])): ?>
                 <a href="add_horse.php">Sell Horse</a>
                 <a href="dashboard.php">Dashboard</a>
